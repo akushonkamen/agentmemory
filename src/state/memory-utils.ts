@@ -57,5 +57,5 @@ export function lessonToObservation(l: Lesson): CompressedObservation {
 export function observationEmbedText(
   record: Pick<CompressedObservation, "title" | "narrative" | "concepts">,
 ): string {
-  return `${record.title} ${record.narrative || ""} ${(record.concepts || []).join(" ")}`;
+  return `${record.title} ${record.narrative || ""} ${(record.concepts || []).join(" ")}`.trim();
 }

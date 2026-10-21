@@ -9,6 +9,7 @@ interface IndexEntry {
   sessionId: string;
   termCount: number;
   layer: SearchResultLayer;
+  timestamp?: string;
 }
 
 // The raw capture fields are the only place the user's own words survive,
@@ -53,6 +54,7 @@ export class SearchIndex {
       sessionId: obs.sessionId,
       termCount,
       layer,
+      timestamp: obs.timestamp,
     });
     this.docTermCounts.set(obs.id, termFreq);
     this.totalDocLength += termCount;
@@ -119,6 +121,17 @@ export class SearchIndex {
 
   layerOf(id: string): SearchResultLayer | undefined {
     return this.entries.get(id)?.layer;
+  }
+
+  countMissingDocuments(hasDocument: (id: string) => boolean, since?: string | null, activeIds?: ReadonlySet<string>): number {
+    const cutoff = typeof since === "string" ? Date.parse(since) : Number.NaN;
+    let missing = 0;
+    for (const entry of this.entries.values()) {
+      if (entry.layer !== "observation" && entry.layer !== "memory") continue;
+      if (Number.isFinite(cutoff) && !(Date.parse(entry.timestamp ?? "") > cutoff) && !activeIds?.has(entry.obsId)) continue;
+      if (!hasDocument(entry.obsId)) missing++;
+    }
+    return missing;
   }
 
   observationCountsBySession(): Map<string, number> {

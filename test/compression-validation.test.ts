@@ -206,6 +206,7 @@ describe("vector embed text for compressed observations", () => {
       raw.sessionId,
       expect.stringContaining("登录超时"),
       expect.anything(),
+      expect.anything(),
     );
   });
 
@@ -217,6 +218,7 @@ describe("vector embed text for compressed observations", () => {
       raw.id,
       raw.sessionId,
       expect.stringMatching(/^Updated configuration Updated the server configuration/),
+      expect.anything(),
       expect.anything(),
     );
   });

@@ -88,6 +88,17 @@ function makeHarness(sessionRows: Array<[string, unknown]> = []) {
 
 const TURN_ONE_AT = "2026-08-26T00:00:00.000Z";
 
+// Count only the stop-lifecycle fan-out; other triggers on the same tick
+// (e.g. `mem::summary-recover` since #1546) are out of scope here.
+function stoppedTriggers(trigger: ReturnType<typeof vi.fn>) {
+  const stopped = trigger.mock.calls.filter(
+    (call) =>
+      (call[0] as { function_id?: string })?.function_id ===
+      "event::session::stopped",
+  );
+  return stopped;
+}
+
 function session(id: string, status: Session["status"] = "active"): Session {
   return {
     id,
@@ -124,7 +135,10 @@ describe("api::session::end honors final across an idle finalize", () => {
     expect(harness.store.get(KV.sessions)?.get(sessionId)).toMatchObject({
       status: "completed",
     });
-    expect(harness.trigger).toHaveBeenCalledTimes(1);
+    // The idle finalizer fans out the stop lifecycle once. Since #1546 it
+    // also fires `mem::summary-recover` on the same tick, so count only
+    // the stopped trigger — not every trigger invocation.
+    expect(stoppedTriggers(harness.trigger)).toHaveLength(1);
 
     // The agent kept working and the SessionEnd hook sends final:true.
     // It must still fan out the stop lifecycle so the newer observations
@@ -135,7 +149,10 @@ describe("api::session::end honors final across an idle finalize", () => {
 
     expect(response.status_code).toBe(200);
     expect(response.body).toMatchObject({ success: true, ended: false });
-    expect(harness.trigger).toHaveBeenCalledTimes(2);
+    // Exactly one more stop lifecycle: the idle finalizer's stopped trigger
+    // plus this re-run (the `mem::summary-recover` fan-out is not a stop
+    // lifecycle event and must not be double-counted).
+    expect(stoppedTriggers(harness.trigger)).toHaveLength(2);
     expect(harness.trigger).toHaveBeenLastCalledWith(
       expect.objectContaining({
         function_id: "event::session::stopped",
